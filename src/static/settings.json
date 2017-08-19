@@ -1,0 +1,5 @@
+{
+    "chan-reactor": {
+        "hostUrl": "http://localhost:9090"
+    }
+}
