@@ -4,7 +4,7 @@ import ContentViewer from "./ContentViewer";
 import {CMessage, CThread, CThumbs, CTrigger} from "./Components";
 import Parser from "html-react-parser";
 import {register} from "../client/websocket-listener";
-import {entity, client, search, custom} from "../client/api";
+import {custom, entity, search} from "../client/api";
 import settings from "../static/settings.json";
 
 const React = require('react');
@@ -13,30 +13,65 @@ const srcPath = settings['chan-reactor'].hostUrl + '/src/attach/';
 
 class ThreadPage extends React.Component {
 
-    constructor(props) {
-        super(props);
-        this.state = {
-            thread: {},
-            createDialog: false,
-            replies: {},
-            pageSize: 500,
-            newCount: 0,
-            content: {
-                src: "/static/img/redo.png",
-                visible: false
-            }
-        };
-        this.onCreate = this.onCreate.bind(this);
-        this.onDelete = this.onDelete.bind(this);
-        this.onThumbClick = this.onThumbClick.bind(this);
-        this.newMessage = this.newMessage.bind(this);
-        this.loadNew = this.loadNew.bind(this);
-        this.onOpen = () => this.setState({createDialog: true});
-        this.onClose = () => this.setState({createDialog: false});
-        this.renderPopover = this.renderPopover.bind(this);
+    state = {
+        thread: {},
+        createDialog: false,
+        replies: {},
+        pageSize: 500,
+        newCount: 0,
+        content: {
+            src: "/static/img/redo.png",
+            visible: false
+        }
+    };
+
+    render() {
+        let params = this.props.match.params;
+        let thread = this.state.thread;
+        let threadView = thread.id ? <CThread key={thread.id} thread={thread} replies={this.state.replies}/> : null;
+        return (
+            <div className="chan-style">
+                <Breadcrumb>
+                    <Breadcrumb.Item href="/">Home</Breadcrumb.Item>
+                    <Breadcrumb.Item href={"/" + params.boardName}>{params.boardName}</Breadcrumb.Item>
+                    <Breadcrumb.Item active
+                                     href={"/" + params.boardName + "/thread/" + params.threadId}>{'#' + params.threadId}</Breadcrumb.Item>
+                    <Breadcrumb.Item active={false}><Button onClick={this.onOpen} bsStyle="success" bsSize="xsmall">Reply</Button></Breadcrumb.Item>
+                </Breadcrumb>
+                {threadView}
+                <CreateDialog visible={this.state.createDialog}
+                              onClose={this.onClose}
+                              threadId={params.threadId}
+                              onCreate={this._onCreate}/>
+                <ContentViewer content={this.state.content} onThumbClick={this._onThumbClick}/>
+                <div className="newCount">
+                    <Button bsStyle="primary" bsSize="xsmall" onClick={this._loadNew}>Refresh <Badge
+                        title="New replies">{this.state.newCount}</Badge></Button>
+                </div>
+            </div>
+        )
     }
 
-    loadFromServer(pageSize) {
+    constructor(props) {
+        super(props);
+        this._onCreate = this._onCreate.bind(this);
+        this._onThumbClick = this._onThumbClick.bind(this);
+        this._newMessage = this._newMessage.bind(this);
+        this._loadNew = this._loadNew.bind(this);
+        this._onOpen = () => this.setState({createDialog: true});
+        this._onClose = () => this.setState({createDialog: false});
+        this._renderPopover = this._renderPopover.bind(this);
+    }
+
+    componentWillMount() {
+        this._loadFromServer(this.state.pageSize);
+        let headers = {selector: "headers['nativeHeaders']['thread'][0] == '" + this.props.match.params.threadId + "'"};
+        register([
+            {route: '/topic/newMessage', headers: headers, callback: this._newMessage}
+        ]);
+    }
+
+    _loadFromServer(pageSize) {
         let thread;
         entity('threads', this.props.match.params.threadId, {projection: 'inlineAttachments'})
             .then(response => {
@@ -50,7 +85,7 @@ class ThreadPage extends React.Component {
                     board: this.props.match.params.boardName,
                     messages: {}
                 };
-                thread = this.createThumbs(thread);
+                thread = this._createThumbs(thread);
                 thread.text = Parser(thread.text);
                 search('messages', 'thread', {
                     size: pageSize,
@@ -61,7 +96,7 @@ class ThreadPage extends React.Component {
                         thread.messages[message.id.toString()] = message;
                     }
                     for (let key in thread.messages) {
-                        thread.messages[key] = this.parseText(this.createThumbs(thread.messages[key]), thread, 0);
+                        thread.messages[key] = this._parseText(this._createThumbs(thread.messages[key]), thread, 0);
                     }
                     this.setState({
                         thread: thread,
@@ -72,7 +107,7 @@ class ThreadPage extends React.Component {
             });
     }
 
-    renderPopover(index, messageId) {
+    _renderPopover(index, messageId) {
         messageId = messageId.toString();
         let thread = this.state.thread;
         let message = thread.id === messageId ? thread : thread.messages[messageId];
@@ -84,14 +119,14 @@ class ThreadPage extends React.Component {
         )
     }
 
-    createThumbs(message) {
-        message.thumbs = <CThumbs attachments={message.attachments} onThumbClick={this.onThumbClick}/>;
+    _createThumbs(message) {
+        message.thumbs = <CThumbs attachments={message.attachments} onThumbClick={this._onThumbClick}/>;
         return message;
     }
 
-    parseText(message, thread, index) {
+    _parseText(message, thread, index) {
         let replies = this.state.replies;
-        let renderPopover = this.renderPopover;
+        let renderPopover = this._renderPopover;
         message.text = Parser(message.text, {
             replace: function (domNode) {
                 if (domNode.attribs && domNode.attribs.id === 'reply-link') {
@@ -114,16 +149,16 @@ class ThreadPage extends React.Component {
         return message;
     }
 
-    loadNew() {
+    _loadNew() {
         if (this.state.newCount === 0) {
             return;
         }
         if (!this.state.items) {
-            this.loadFromServer(this.state.pageSize);
+            this._loadFromServer(this.state.pageSize);
             return;
         }
         if (this.state.items.length <= 20) {
-            this.loadFromServer(this.state.pageSize);
+            this._loadFromServer(this.state.pageSize);
             return;
         }
         search('messages', 'thread', {
@@ -144,20 +179,15 @@ class ThreadPage extends React.Component {
         });
     }
 
-    onCreate(form) {
+    _onCreate(form) {
         custom('/res/submit', {
             method: "POST",
             body: form,
             credentials: 'include'
-        }).then(() => this.loadFromServer(this.state.pageSize));
+        }).then(() => this._loadFromServer(this.state.pageSize));
     }
 
-    onDelete(thread) {
-        client(thread._links.self.href, {method: 'DELETE'})
-            .then(() => this.loadFromServer(this.state.pageSize));
-    }
-
-    onThumbClick(event) {
+    _onThumbClick(event) {
         let attachName = event.target.id;
         let visible = this.state.content.visible;
         let src = srcPath + attachName;
@@ -177,45 +207,10 @@ class ThreadPage extends React.Component {
         });
     }
 
-    newMessage(message) {
+    _newMessage(message) {
         this.setState({
             newCount: this.state.newCount + 1
         });
-    }
-
-    componentWillMount() {
-        this.loadFromServer(this.state.pageSize);
-        let headers = {selector: "headers['nativeHeaders']['thread'][0] == '" + this.props.match.params.threadId + "'"};
-        register([
-            {route: '/topic/newMessage', headers: headers, callback: this.newMessage}
-        ]);
-    }
-
-    render() {
-        let params = this.props.match.params;
-        let thread = this.state.thread;
-        let threadView = thread.id ? <CThread key={thread.id} thread={thread} replies={this.state.replies}/> : null;
-        return (
-            <div className="chan-style">
-                <Breadcrumb>
-                    <Breadcrumb.Item href="/">Home</Breadcrumb.Item>
-                    <Breadcrumb.Item href={"/" + params.boardName}>{params.boardName}</Breadcrumb.Item>
-                    <Breadcrumb.Item active
-                                     href={"/" + params.boardName + "/thread/" + params.threadId}>{'#' + params.threadId}</Breadcrumb.Item>
-                    <Breadcrumb.Item active={false}><Button onClick={this.onOpen} bsStyle="success" bsSize="xsmall">Reply</Button></Breadcrumb.Item>
-                </Breadcrumb>
-                {threadView}
-                <CreateDialog visible={this.state.createDialog}
-                              onClose={this.onClose}
-                              threadId={params.threadId}
-                              onCreate={this.onCreate}/>
-                <ContentViewer content={this.state.content} onThumbClick={this.onThumbClick}/>
-                <div className="newCount">
-                    <Button bsStyle="primary" bsSize="xsmall" onClick={this.loadNew}>Refresh <Badge
-                        title="New replies">{this.state.newCount}</Badge></Button>
-                </div>
-            </div>
-        )
     }
 }
 

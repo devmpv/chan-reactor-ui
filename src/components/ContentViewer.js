@@ -8,13 +8,6 @@ const none = {
 
 class ContentViewer extends React.Component {
 
-    constructor(props) {
-        super(props);
-        this.handleThumbClick = (event) => {
-            this.props.onThumbClick(event);
-        }
-    }
-
     render() {
         let style = this.props.content.visible ? block : none;
         return (
@@ -22,6 +15,13 @@ class ContentViewer extends React.Component {
                 <img id="" alt="content" src={this.props.content.src} onClick={this.handleThumbClick}/>
             </div>
         )
+    }
+
+    constructor(props) {
+        super(props);
+        this.handleThumbClick = (event) => {
+            this.props._onThumbClick(event);
+        }
     }
 }
 

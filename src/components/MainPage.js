@@ -1,4 +1,4 @@
-import {collection} from '../client/api';
+import {collection} from "../client/api";
 
 const React = require('react');
 const ListGroup = require('react-bootstrap/lib/ListGroup');
@@ -6,27 +6,12 @@ const ListGroupItem = require('react-bootstrap/lib/ListGroupItem');
 
 class MainPage extends React.Component {
 
-    constructor(props) {
-        super(props);
-        this.state = {boards: []};
-    }
-
-    loadFromServer() {
-        collection('boards').then(data => {
-                this.setState({
-                    boards: data._embedded['boards']
-                })
-            });
-    }
-
-    componentDidMount() {
-        this.loadFromServer();
-    }
+    state = {boards: []};
 
     render() {
         let boards = this.state.boards.map(board =>
             <ListGroupItem header={'/' + board.id} key={board._links.self.href} href={board.id}>
-              {board.title}
+                {board.title}
             </ListGroupItem>
         );
         return (
@@ -40,6 +25,18 @@ class MainPage extends React.Component {
 
             </div>
         )
+    }
+
+    componentDidMount() {
+        this._loadFromServer();
+    }
+
+    _loadFromServer() {
+        collection('boards').then(data => {
+            this.setState({
+                boards: data._embedded['boards']
+            })
+        });
     }
 }
 

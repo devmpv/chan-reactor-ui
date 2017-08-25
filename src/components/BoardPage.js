@@ -3,7 +3,7 @@ import CreateDialog from "./CreateDialog";
 import ContentViewer from "./ContentViewer";
 import {CMessage, CThread, CThumbs, CTrigger} from "./Components";
 import Parser from "html-react-parser";
-import {client, custom, search} from "../client/api";
+import {custom, search} from "../client/api";
 import settings from "../static/settings.json";
 
 const React = require('react');
@@ -12,28 +12,53 @@ const srcPath = settings['chan-reactor'].hostUrl + '/src/attach/';
 
 class BoardPage extends React.Component {
 
-    constructor(props) {
-        super(props);
-        this.state = {
-            items: [],
-            replies: {},
-            pageSize: 20,
-            createDialog: false,
-            content: {
-                src: "/static/img/redo.png",
-                visible: false
-            }
-        };
-        this.updatePageSize = this.updatePageSize.bind(this);
-        this.onCreate = this.onCreate.bind(this);
-        this.onDelete = this.onDelete.bind(this);
-        this.onThumbClick = this.onThumbClick.bind(this);
-        this.onOpen = () => this.setState({createDialog: true});
-        this.onClose = () => this.setState({createDialog: false});
-        this.renderPopover = this.renderPopover.bind(this);
+    state = {
+        items: [],
+        replies: {},
+        pageSize: 20,
+        createDialog: false,
+        content: {
+            src: "/static/img/redo.png",
+            visible: false
+        }};
+
+    render() {
+        let threadPrev = this.state.items.map(thread =>
+            <CThread key={thread.id} thread={thread} replies={this.state.replies}/>
+        );
+        return (
+            <div className="chan-style">
+                <Breadcrumb>
+                    <Breadcrumb.Item href="/">Home</Breadcrumb.Item>
+                    <Breadcrumb.Item active
+                                     href={"/" + this.props.match.params.boardName}>{this.props.match.params.boardName}</Breadcrumb.Item>
+                    <Breadcrumb.Item active={false}><Button onClick={this.onOpen} bsStyle="success" bsSize="xsmall">Create</Button></Breadcrumb.Item>
+                </Breadcrumb>
+                {threadPrev}
+                <CreateDialog visible={this.state.createDialog}
+                              onClose={this.onClose}
+                              boardName={this.props.match.params.boardName}
+                              onCreate={this._onCreate}/>
+                <ContentViewer content={this.state.content} onThumbClick={this._onThumbClick}/>
+            </div>
+        )
     }
 
-    loadFromServer(pageSize) {
+    constructor(props) {
+        super(props);
+        this._updatePageSize = this._updatePageSize.bind(this);
+        this._onCreate = this._onCreate.bind(this);
+        this._onThumbClick = this._onThumbClick.bind(this);
+        this._onOpen = () => this.setState({createDialog: true});
+        this._onClose = () => this.setState({createDialog: false});
+        this._renderPopover = this._renderPopover.bind(this);
+    }
+
+    componentWillMount() {
+        this._loadFromServer(this.state.pageSize);
+    }
+
+    _loadFromServer(pageSize) {
         this.setState({
             items: []
         });
@@ -44,12 +69,12 @@ class BoardPage extends React.Component {
             let threads = json._embedded['threads'];
             if (!threads) return;
             for (let index in threads) {
-                this.getThreadDetails(threads[index], index);
+                this._getThreadDetails(threads[index], index);
             }
         });
     }
 
-    renderPopover(index, messageId) {
+    _renderPopover(index, messageId) {
         messageId = messageId.toString();
         let thread = this.state.items[index];
         let message = thread.id.toString() === messageId ? thread : thread.messages[messageId];
@@ -61,14 +86,14 @@ class BoardPage extends React.Component {
         )
     }
 
-    createThumbs(message) {
-        message.thumbs = <CThumbs attachments={message.attachments} onThumbClick={this.onThumbClick}/>;
+    _createThumbs(message) {
+        message.thumbs = <CThumbs attachments={message.attachments} onThumbClick={this._onThumbClick}/>;
         return message;
     }
 
-    parseText(message, thread, index) {
+    _parseText(message, thread, index) {
         let replies = this.state.replies;
-        let renderPopover = this.renderPopover;
+        let renderPopover = this._renderPopover;
         message.text = Parser(message.text, {
             replace: function (domNode) {
                 if (domNode.attribs && domNode.attribs.id === 'reply-link') {
@@ -90,8 +115,8 @@ class BoardPage extends React.Component {
         return message;
     }
 
-    getThreadDetails(thread, index) {
-        thread = this.createThumbs(thread);
+    _getThreadDetails(thread, index) {
+        thread = this._createThumbs(thread);
         thread.text = Parser(thread.text);
         thread.messages = {};
         thread.count = 0;
@@ -102,7 +127,7 @@ class BoardPage extends React.Component {
                     thread.messages[message.id.toString()] = message;
                 }
                 for (let key in thread.messages) {
-                    thread.messages[key] = this.parseText(this.createThumbs(thread.messages[key]), thread, index);
+                    thread.messages[key] = this._parseText(this._createThumbs(thread.messages[key]), thread, index);
                 }
                 search('messages', 'preview', {id: thread.id})
                     .then(count => {
@@ -116,20 +141,15 @@ class BoardPage extends React.Component {
             });
     }
 
-    onCreate(form) {
+    _onCreate(form) {
         custom('/res/submit', {
             method: "POST",
             body: form,
             credentials: 'include'
-        }).then(() => this.loadFromServer(this.state.pageSize));
+        }).then(() => this._loadFromServer(this.state.pageSize));
     }
 
-    onDelete(thread) {
-        client(thread._links.self.href, {method: 'DELETE'})
-            .then(() => this.loadFromServer(this.state.pageSize));
-    }
-
-    onThumbClick(event) {
+    _onThumbClick(event) {
         let attachName = event.target.id;
         let visible = this.state.content.visible;
         let src = srcPath + attachName;
@@ -149,36 +169,10 @@ class BoardPage extends React.Component {
         });
     }
 
-    updatePageSize(pageSize) {
+    _updatePageSize(pageSize) {
         if (pageSize !== this.state.pageSize) {
-            this.loadFromServer(pageSize);
+            this._loadFromServer(pageSize);
         }
-    }
-
-    componentWillMount() {
-        this.loadFromServer(this.state.pageSize);
-    }
-
-    render() {
-        let threadPrev = this.state.items.map(thread =>
-            <CThread key={thread.id} thread={thread} replies={this.state.replies}/>
-        );
-        return (
-            <div className="chan-style">
-                <Breadcrumb>
-                    <Breadcrumb.Item href="/">Home</Breadcrumb.Item>
-                    <Breadcrumb.Item active
-                                     href={"/" + this.props.match.params.boardName}>{this.props.match.params.boardName}</Breadcrumb.Item>
-                    <Breadcrumb.Item active={false}><Button onClick={this.onOpen} bsStyle="success" bsSize="xsmall">Create</Button></Breadcrumb.Item>
-                </Breadcrumb>
-                {threadPrev}
-                <CreateDialog visible={this.state.createDialog}
-                              onClose={this.onClose}
-                              boardName={this.props.match.params.boardName}
-                              onCreate={this.onCreate}/>
-                <ContentViewer content={this.state.content} onThumbClick={this.onThumbClick}/>
-            </div>
-        )
     }
 }
 
