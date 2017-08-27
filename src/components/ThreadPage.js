@@ -36,11 +36,11 @@ class ThreadPage extends React.Component {
                     <Breadcrumb.Item href={"/" + params.boardName}>{params.boardName}</Breadcrumb.Item>
                     <Breadcrumb.Item active
                                      href={"/" + params.boardName + "/thread/" + params.threadId}>{'#' + params.threadId}</Breadcrumb.Item>
-                    <Breadcrumb.Item active={false}><Button onClick={this.onOpen} bsStyle="success" bsSize="xsmall">Reply</Button></Breadcrumb.Item>
+                    <Breadcrumb.Item active={false}><Button onClick={this._onOpen} bsStyle="success" bsSize="xsmall">Reply</Button></Breadcrumb.Item>
                 </Breadcrumb>
                 {threadView}
                 <CreateDialog visible={this.state.createDialog}
-                              onClose={this.onClose}
+                              onClose={this._onClose}
                               threadId={params.threadId}
                               onCreate={this._onCreate}/>
                 <ContentViewer content={this.state.content} onThumbClick={this._onThumbClick}/>
@@ -128,7 +128,7 @@ class ThreadPage extends React.Component {
         let replies = this.state.replies;
         let renderPopover = this._renderPopover;
         message.text = Parser(message.text, {
-            replace: function (domNode) {
+            replace: (domNode) => {
                 if (domNode.attribs && domNode.attribs.id === 'reply-link') {
                     if (thread.messages[domNode.attribs.key] || thread.id === domNode.attribs.key) {
                         let id_string = domNode.attribs.key.toString();

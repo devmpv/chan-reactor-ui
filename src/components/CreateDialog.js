@@ -28,7 +28,7 @@ class CreateDialog extends React.Component {
                             <div className="editor-wrapper">
                                 <Editor
                                     editorState={this.state.editorState}
-                                    onEditorStateChange={this.onEditorStateChange}
+                                    onEditorStateChange={this._onEditorStateChange}
                                     toolbar={toolbarConfig}/>
                             </div>
                         </FormGroup>
@@ -61,7 +61,7 @@ class CreateDialog extends React.Component {
         this._handleTitleChange = this._handleTitleChange.bind(this);
         this._handleTextChange = this._handleTextChange.bind(this);
         this._onFileDrop = this._onFileDrop.bind(this);
-        this.onEditorStateChange = (editorState) => this.setState({editorState});
+        this._onEditorStateChange = (editorState) => this.setState({editorState});
     }
 
     _getValidationState() {
@@ -108,7 +108,7 @@ class CreateDialog extends React.Component {
         this.state.files.map(file => form.append(file.name, file));
         form.append('title', title);
         form.append('text', text);
-        this.props._onCreate(form);
+        this.props.onCreate(form);
 
         this.setState({
             files: [],

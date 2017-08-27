@@ -32,11 +32,11 @@ class BoardPage extends React.Component {
                     <Breadcrumb.Item href="/">Home</Breadcrumb.Item>
                     <Breadcrumb.Item active
                                      href={"/" + this.props.match.params.boardName}>{this.props.match.params.boardName}</Breadcrumb.Item>
-                    <Breadcrumb.Item active={false}><Button onClick={this.onOpen} bsStyle="success" bsSize="xsmall">Create</Button></Breadcrumb.Item>
+                    <Breadcrumb.Item active={false}><Button onClick={this._onOpen} bsStyle="success" bsSize="xsmall">Create</Button></Breadcrumb.Item>
                 </Breadcrumb>
                 {threadPrev}
                 <CreateDialog visible={this.state.createDialog}
-                              onClose={this.onClose}
+                              onClose={this._onClose}
                               boardName={this.props.match.params.boardName}
                               onCreate={this._onCreate}/>
                 <ContentViewer content={this.state.content} onThumbClick={this._onThumbClick}/>
@@ -95,7 +95,7 @@ class BoardPage extends React.Component {
         let replies = this.state.replies;
         let renderPopover = this._renderPopover;
         message.text = Parser(message.text, {
-            replace: function (domNode) {
+            replace: (domNode) => {
                 if (domNode.attribs && domNode.attribs.id === 'reply-link') {
                     if (thread.messages[domNode.attribs.key] || thread.id.toString() === domNode.attribs.key) {
                         let list = replies[domNode.attribs.key] ? replies[domNode.attribs.key] : {};
