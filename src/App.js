@@ -3,8 +3,8 @@ import {
     BrowserRouter as Router,
     Route
 } from 'react-router-dom'
-import './static/css/main.css';
 import './static/css/bootstrap.min.css';
+import './static/css/main.css';
 import MainPage from "./components/MainPage";
 import BoardPage from "./components/BoardPage";
 import ThreadPage from "./components/ThreadPage";

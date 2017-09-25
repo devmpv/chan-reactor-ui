@@ -1,3 +1,4 @@
+import React, {Component} from "react";
 import {Badge, Breadcrumb, Button, Popover} from "react-bootstrap";
 import CreateDialog from "./CreateDialog";
 import ContentViewer from "./ContentViewer";
@@ -7,11 +8,9 @@ import {register} from "../client/websocket-listener";
 import {custom, entity, search} from "../client/api";
 import settings from "../static/settings.json";
 
-const React = require('react');
-
 const srcPath = settings['chan-reactor'].hostUrl + '/src/attach/';
 
-class ThreadPage extends React.Component {
+class ThreadPage extends Component {
 
     state = {
         thread: {},
@@ -64,14 +63,14 @@ class ThreadPage extends React.Component {
     }
 
     componentWillMount() {
-        this._loadFromServer(this.state.pageSize);
+        this._loadFromServer();
         let headers = {selector: "headers['nativeHeaders']['thread'][0] == '" + this.props.match.params.threadId + "'"};
         register([
             {route: '/topic/newMessage', headers: headers, callback: this._newMessage}
         ]);
     }
 
-    _loadFromServer(pageSize) {
+    _loadFromServer() {
         let thread;
         entity('threads', this.props.match.params.threadId, {projection: 'inlineAttachments'})
             .then(response => {
@@ -83,31 +82,49 @@ class ThreadPage extends React.Component {
                     timestamp: response.timestamp,
                     updated: response.updated,
                     board: this.props.match.params.boardName,
+                    replyIds: response.replyIds,
                     messages: {}
                 };
                 thread = this._createThumbs(thread);
                 thread.text = Parser(thread.text);
                 search('messages', 'thread', {
-                    size: pageSize,
+                    size: this.state.pageSize,
                     id: this.props.match.params.threadId
                 }).then(reply => {
                     let messages = reply._embedded['messages'] ? reply._embedded['messages'] : [];
                     for (let message of messages.reverse()) {
                         thread.messages[message.id.toString()] = message;
                     }
-                    for (let key in thread.messages) {
-                        thread.messages[key] = this._parseText(this._createThumbs(thread.messages[key]), thread, 0);
-                    }
-                    this.setState({
-                        thread: thread,
-                        pageSize: pageSize,
-                        newCount: 0
-                    })
+                    this._buildReplies(thread)
                 })
             });
     }
 
-    _renderPopover(index, messageId) {
+    _buildReplies(thread) {
+        let replies = {};
+        let list = {};
+        for (let replyId of thread.replyIds) {
+            list[replyId.toString()] =
+                <CTrigger key={replyId} threadId={thread.id} messageId={replyId} render={this._renderPopover}/>;
+        }
+        replies[thread.id.toString()] = list;
+        for (let key in thread.messages) {
+            thread.messages[key] = this._parseText(this._createThumbs(thread.messages[key]), thread);
+            const message = thread.messages[key];
+            let list = {};
+            for (let replyId of message.replyIds) {
+                list[replyId.toString()] =
+                    <CTrigger key={replyId} threadId={thread.id} messageId={replyId} render={this._renderPopover}/>;
+            }
+            replies[message.id.toString()] = list;
+        }
+        this.setState({
+            thread: thread,
+            replies: replies
+        })
+    }
+
+    _renderPopover(messageId) {
         messageId = messageId.toString();
         let thread = this.state.thread;
         let message = thread.id === messageId ? thread : thread.messages[messageId];
@@ -124,27 +141,17 @@ class ThreadPage extends React.Component {
         return message;
     }
 
-    _parseText(message, thread, index) {
-        let replies = this.state.replies;
-        let renderPopover = this._renderPopover;
+    _parseText(message, thread) {
         message.text = Parser(message.text, {
             replace: (domNode) => {
                 if (domNode.attribs && domNode.attribs.id === 'reply-link') {
-                    if (thread.messages[domNode.attribs.key] || thread.id === domNode.attribs.key) {
-                        let id_string = domNode.attribs.key.toString();
-                        let list = replies[id_string] ? replies[id_string] : {};
-                        list[message.id.toString()] =
-                            <CTrigger key={message.id} threadId={index} messageId={message.id} render={renderPopover}/>;
-                        replies[id_string] = list;
-                        return <CTrigger threadId={index} messageId={domNode.attribs.key} render={renderPopover}/>
+                    if (thread.messages[domNode.attribs.key] || thread.id.toString() === domNode.attribs.key) {
+                        return <CTrigger messageId={domNode.attribs.key} render={this._renderPopover}/>
                     } else {
                         return <span>{'>>' + domNode.attribs.key}</span>
                     }
                 }
             }
-        });
-        this.setState({
-            replies: replies
         });
         return message;
     }
@@ -154,11 +161,11 @@ class ThreadPage extends React.Component {
             return;
         }
         if (!this.state.items) {
-            this._loadFromServer(this.state.pageSize);
+            this._loadFromServer();
             return;
         }
         if (this.state.items.length <= 20) {
-            this._loadFromServer(this.state.pageSize);
+            this._loadFromServer();
             return;
         }
         search('messages', 'thread', {
@@ -184,7 +191,7 @@ class ThreadPage extends React.Component {
             method: "POST",
             body: form,
             credentials: 'include'
-        }).then(() => this._loadFromServer(this.state.pageSize));
+        }).then(() => this._loadFromServer());
     }
 
     _onThumbClick(event) {

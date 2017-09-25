@@ -37,9 +37,9 @@ export const CThumbs = ({attachments, onThumbClick}) => {
       <div className="thumb-box">{thumbs}</div>
 )};
 
-export const CTrigger = ({threadId, messageId, render}) => {
+export const CTrigger = ({messageId, render}) => {
   return(
-    <OverlayTrigger rootClose trigger={['hover']} delayHide={5000} overlay={render(threadId, messageId)}>
+    <OverlayTrigger rootClose trigger={['hover']} delayHide={5000} overlay={render(messageId)}>
       <a href={'#'+messageId}>{'>>'+messageId}</a>
     </OverlayTrigger>
 )};
